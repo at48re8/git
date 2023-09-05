@@ -1,6 +1,6 @@
-# Define the username and password for the account you want to enable auto-login for
-$username = "Administrator"
-$password = "!qaz2wsX"
+# Prompt the user for their username and password
+$username = Read-Host "Enter your username"
+$password = Read-Host -AsSecureString "Enter your password"
 
 # Set the registry keys to enable auto-login
 $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
