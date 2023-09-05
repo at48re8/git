@@ -1,44 +1,51 @@
+# Function to check if system settings are already configured
+function CheckSystemSettings {
+    # Check if AutoAdminLogon is already enabled
+    $autoAdminLogon = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -ErrorAction SilentlyContinue
+    $uacEnabled = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLUA" -ErrorAction SilentlyContinue
+    $firewallStatus = Get-NetFirewallProfile | ForEach-Object { $_.Enabled }
+
+    if ($autoAdminLogon -ne $null -and $autoAdminLogon.AutoAdminLogon -eq "1" -and
+        $uacEnabled -ne $null -and $uacEnabled.EnableLUA -eq 0 -and
+        $firewallStatus -eq "False") {
+        return $true
+    }
+
+    return $false
+}
+
+# Prompt the user to set default system settings if they are not already set
+if (-not (CheckSystemSettings)) {
+    Write-Host "System settings are not configured as default."
+    $confirm = Read-Host "Do you want to set the default system settings? (Y/N)"
+    
+    if ($confirm -eq "Y" -or $confirm -eq "y") {
+        # Set the system settings as before
+        # ...
+
+        Write-Host "Default system settings have been set."
+        Write-Host "Please restart the system for the changes to take effect."
+        pause
+        Restart-Computer
+    } else {
+        Write-Host "Default system settings were not set."
+    }
+} else {
+    Write-Host "System settings are already configured as default."
+}
+
+# Rest of your script here
+# ...
+
 # Prompt the user for their username and password
 $username = Read-Host "Enter your username"
-
-# Initialize variables for password
-$PlainPassword = $null
-$confirmed = $false
-
-do {
-    $password_Raw1 = Read-Host "Enter your password" -AsSecureString
-    $password_Raw2 = Read-Host "Confirm your password" -AsSecureString
-
-    # Convert the secure strings to plain text for comparison
-    $password1 = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password_Raw1))
-    $password2 = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password_Raw2))
-
-    if ($password1 -ne $password2) {
-        Write-Host "Passwords do not match. Please try again."
-    } else {
-        $PlainPassword = $password1
-
-        # Prompt the user to confirm the password
-        $confirm = Read-Host "Your entered password is: $PlainPassword. Is this correct? (yes/no)"
-
-        if ($confirm -eq "yes" -or $confirm -eq "y") {
-            $confirmed = $true
-        } elseif ($confirm -eq "no" -or $confirm -eq "n") {
-            Write-Host "Please try entering your password again."
-        } else {
-            Write-Host "Invalid response. Please enter 'yes' or 'no'."
-        }
-    }
-} while (-not $confirmed)
-
-# Proceed with the script after the password is confirmed
-Write-Host "Password confirmed. Proceed with the script."
+$password = Read-Host -AsSecureString "Enter your password"
 
 # Set the registry keys to enable auto-login
 $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 Set-ItemProperty -Path $regPath -Name "AutoAdminLogon" -Value "1"
 Set-ItemProperty -Path $regPath -Name "DefaultUserName" -Value $username
-Set-ItemProperty -Path $regPath -Name "DefaultPassword" -Value $PlainPassword
+Set-ItemProperty -Path $regPath -Name "DefaultPassword" -Value $password
 
 # Disable UAC verification
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLUA" -Value 0
@@ -66,14 +73,14 @@ powercfg -change -monitor-timeout-dc 0
 # Set-ItemProperty -Path $regPath -Name "DefaultDomainName" -Value "YourDomainName"
 # Set the NTP server to a server in Taiwan (e.g., time.stdtime.gov.tw)
 
+$NtpServer = "time.stdtime.gov.tw"
+
 # Set the time zone to Taipei
 Set-TimeZone -Id "Taipei Standard Time"
 
 # Display the current time zone to verify the change
 Get-TimeZone
 
-# Define the NTP server address
-$NtpServer = "time.stdtime.gov.tw"
 
 # Configure the NTP server
 w32tm /config /manualpeerlist:$NtpServer /syncfromflags:manual /reliable:YES /update
@@ -88,4 +95,4 @@ w32tm /resync /force
 w32tm /query /status
 
 # Reboot the server to apply the changes
-Restart-Computer -Force
+Restart-Computer
